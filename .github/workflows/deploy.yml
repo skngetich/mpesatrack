@@ -1,0 +1,76 @@
+# CI/CD: test and build every push and pull request; deploy to Firebase Hosting
+# (https://mpesatrack.web.app) only when the push is to main.
+#
+# Requires the repository secret FIREBASE_SERVICE_ACCOUNT: the JSON key of the
+# `mpesatrack-deploy` service account (see README, "Deploying to Firebase").
+name: Test, build and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # manual re-run from the Actions tab
+
+# Never run two deploys at once; a newer push cancels an older run that is still going.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      # `npm run build` type-checks (tsc) and then builds into dist/
+      - run: npm run build
+
+      # Hand the exact tested build to the deploy job.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  deploy:
+    needs: build
+    # Pull requests only get the test/build check above; they never deploy.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mpesatrack.web.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy to Firebase Hosting
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # firebase.json pins the site to "mpesatrack", so this cannot touch the portfolio site.
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx firebase deploy --only hosting --project skngetich-portfolio
+          rm -f "$RUNNER_TEMP/sa.json"

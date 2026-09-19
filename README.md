@@ -56,7 +56,22 @@ npm run deploy     # = npm run build && firebase deploy --only hosting
 
 - `firebase.json` pins `"site": "mpesatrack"`, and `.firebaserc` sets the default project, so a deploy from this folder cannot overwrite the portfolio site.
 - Caching rules in `firebase.json`: `index.html` (and `/`), `sw.js` and the manifest are `no-cache` so a new release is picked up immediately; everything in `/assets/` has a content hash in its file name and is cached for a year (`immutable`). If `index.html` were cached, a phone could keep a stale page pointing at asset files that no longer exist after a deploy.
-- Users get updates automatically: the service worker (`autoUpdate`) installs the new version in the background and it takes over the next time the app is opened.
+#### Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` runs on every push and pull request: `npm ci`, `npm test`, `npm run build`.
+A push to **`main`** that passes then deploys to Firebase Hosting; pull requests are only checked, never deployed.
+It can also be re-run by hand from the repo's **Actions** tab (*Run workflow*).
+
+Authentication uses a dedicated service account, `mpesatrack-deploy@skngetich-portfolio.iam.gserviceaccount.com`
+(role *Firebase Hosting Admin*), whose JSON key is stored in the repository secret `FIREBASE_SERVICE_ACCOUNT`.
+
+- Note: that role is project-wide, so the account *could* deploy to any Hosting site in the project. The workflow and `firebase.json` only ever target `mpesatrack`, but treat the secret as sensitive.
+- **Rotate the key** (every so often, or if it may have leaked): create a new key with
+  `gcloud iam service-accounts keys create key.json --iam-account mpesatrack-deploy@skngetich-portfolio.iam.gserviceaccount.com`,
+  update the secret with `gh secret set FIREBASE_SERVICE_ACCOUNT < key.json`, delete `key.json`, then delete the old key in the Google Cloud console (IAM, Service accounts, Keys).
+- To stop automatic deploys, delete the workflow file or the secret. Manual `npm run deploy` keeps working.
+
+Users get updates automatically: the service worker (`autoUpdate`) installs the new version in the background and it takes over the next time the app is opened.
 - First-time setup on a new machine: `npx firebase login`. To host somewhere else, create a site with `firebase hosting:sites:create <name>` and change `"site"` in `firebase.json`.
 - The site is public, but it contains only the app code. No statements or transactions are ever sent to it.
 
