@@ -62,6 +62,8 @@ export interface Summary {
   income: CategoryTotal[];
   topCounterparties: Array<{ name: string; total: number; count: number }>;
   monthly: Array<{ month: string; totalIn: number; totalOut: number }>;
+  /** Fuliza overdraft: money drawn and money repaid. Excluded from every other total. */
+  fuliza: { drawn: number; repaid: number };
 }
 
 export interface DbInfo {

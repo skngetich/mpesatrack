@@ -12,7 +12,9 @@ result for expense tracking.
 ## Features
 
 - **Import statement PDFs**, including the password-protected ones Safaricom sends (password is usually your national ID number). Decryption happens on the device.
-- **Safe re-imports**: transactions are keyed by M-PESA receipt number, so overlapping statements never create duplicates.
+- **Safe re-imports**: overlapping statements never create duplicates (rows are keyed on receipt + amounts + balance; a payment and its fee share one receipt, so the receipt alone is not enough).
+- **Self-checking import**: after parsing, the app compares its sums with the statement's own `TOTAL` row and shows a green tick when they match to the cent.
+- **Fuliza aware**: Fuliza is an overdraft (borrowing), so draws and repayments are kept out of income and spending and reported separately.
 - **Automatic categorisation** from keyword rules (Naivas, KPLC, Uber, airtime, Fuliza, ... ship as defaults) with the longest keyword winning.
 - **Teach it once**: tap a transaction, pick a category, tick "also categorise similar" and every matching transaction, past and future, follows.
 - **Summary**: money in/out/net, spending and income by category, top payees, month by month.
@@ -45,6 +47,11 @@ A PWA needs **HTTPS** to install and to use local storage (`http://192.168.x.x` 
 
 Only the app code is hosted; your statements and data never leave the phone.
 
+- **Android (Chrome):** open the URL, menu, *Install app* (or *Add to Home screen*).
+- **iPhone (Safari 16.4+):** Share, *Add to Home Screen*.
+
+Then: **Import** tab, choose the PDF, enter the password if asked, done.
+
 ### Deploying to Firebase
 
 Live at **https://mpesatrack.web.app**, a dedicated Hosting site (`mpesatrack`) inside the Firebase project
@@ -56,6 +63,7 @@ npm run deploy     # = npm run build && firebase deploy --only hosting
 
 - `firebase.json` pins `"site": "mpesatrack"`, and `.firebaserc` sets the default project, so a deploy from this folder cannot overwrite the portfolio site.
 - Caching rules in `firebase.json`: `index.html` (and `/`), `sw.js` and the manifest are `no-cache` so a new release is picked up immediately; everything in `/assets/` has a content hash in its file name and is cached for a year (`immutable`). If `index.html` were cached, a phone could keep a stale page pointing at asset files that no longer exist after a deploy.
+
 #### Automatic deploys (GitHub Actions)
 
 `.github/workflows/deploy.yml` runs on every push and pull request: `npm ci`, `npm test`, `npm run build`.
@@ -74,11 +82,6 @@ Authentication uses a dedicated service account, `mpesatrack-deploy@skngetich-po
 Users get updates automatically: the service worker (`autoUpdate`) installs the new version in the background and it takes over the next time the app is opened.
 - First-time setup on a new machine: `npx firebase login`. To host somewhere else, create a site with `firebase hosting:sites:create <name>` and change `"site"` in `firebase.json`.
 - The site is public, but it contains only the app code. No statements or transactions are ever sent to it.
-
-- **Android (Chrome):** open the URL, menu, *Install app* (or *Add to Home screen*).
-- **iPhone (Safari 16.4+):** Share, *Add to Home Screen*.
-
-Then: **Import** tab, choose the PDF, enter the password if asked, done.
 
 ## Using the app
 
@@ -109,6 +112,7 @@ src/
     pdf.ts          pdf.js wrapper: PDF (+password) -> positioned text fragments
     mpesa.ts        pure parser: fragments -> transactions (rows, columns, wrapped lines, types)
     mpesa.test.ts   unit tests using a synthetic statement layout
+    mpesa.real-layout.test.ts   regression tests modelled on the geometry of a real statement (invented data)
   categorize.ts     default categories/rules and the rule-matching function (pure)
   db/
     worker.ts       SQLite (WASM) in a Web Worker: schema, queries, import, backup
@@ -128,7 +132,7 @@ Preact + TypeScript + Vite, `vite-plugin-pwa` (Workbox), `pdfjs-dist`, `@sqlite.
 
 ## Known limitations
 
-- **The parser has only been verified against a synthetic statement** that mimics the M-PESA column layout (including wrapped Details lines, right-aligned amounts, repeated headers and merged header cells), not against a real statement PDF. Safaricom occasionally changes its layout. If your import reports 0 rows or a balance-reconciliation warning, see [docs/PARSER.md](docs/PARSER.md#when-a-real-statement-does-not-parse) (the Import screen has a "show extracted text" panel for exactly this).
+- **Parser coverage:** verified against one real full statement (930 transactions, totals match the statement's own summary to the cent) and against synthetic layouts. Safaricom may change the layout, or business/other statement types may differ. If an import reports 0 rows or a totals warning, see [docs/PARSER.md](docs/PARSER.md#when-a-statement-does-not-parse); the Import screen has a "show extracted text" panel for exactly this.
 - **Scanned/image-only PDFs** contain no text and cannot be read (no OCR).
 - Data is per browser profile and per device. There is no sync; use backup/restore to move it. If the browser lacks OPFS the app runs in memory and warns you (make a backup).
 - Tested in Chromium. iOS Safari 16.4+ should work (OPFS in workers) but has not been tried on a device.

@@ -9,6 +9,8 @@ interface Report {
   added?: number;
   duplicates?: number;
   categorised?: number;
+  /** Did our sums equal the statement's own TOTAL row? */
+  totalsCheck?: 'match' | 'mismatch' | 'absent';
   warnings: string[];
   error?: string;
   /** Raw extracted text, offered when nothing could be parsed so the layout can be diagnosed. */
@@ -48,7 +50,7 @@ export function ImportView({ onImported }: { onImported: () => void }) {
         }
         setBusy(`Saving ${parsed.transactions.length} transactions…`);
         const res = await db.importTransactions(parsed.transactions);
-        out.push({ file: file.name, ...res, warnings: parsed.warnings });
+        out.push({ file: file.name, ...res, totalsCheck: parsed.totalsCheck, warnings: parsed.warnings });
       } catch (err) {
         if (err instanceof PasswordError) {
           setNeedPassword(true);
@@ -105,6 +107,9 @@ export function ImportView({ onImported }: { onImported: () => void }) {
               Added <b>{r.added}</b> transactions ({r.categorised} auto-categorised), skipped {r.duplicates} already
               imported.
             </p>
+          )}
+          {r.totalsCheck === 'match' && (
+            <p class="in">✓ Totals match the statement's own summary, so every row was read correctly.</p>
           )}
           {r.warnings.map((w) => (
             <p class="warn" key={w}>

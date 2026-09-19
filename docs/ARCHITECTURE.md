@@ -27,7 +27,7 @@ PDF parsing runs on the UI thread but pdf.js does the heavy lifting in its own w
 
 Pure modules have unit tests (`npm test`) with no browser needed.
 
-## Data model (SQLite, schema version 1)
+## Data model (SQLite, schema version 2)
 
 Stored in `PRAGMA user_version`; migrations are additive steps in `migrate()`.
 
@@ -36,7 +36,7 @@ categories(id PK, name UNIQUE, color)
 
 transactions(
   id PK,
-  receipt UNIQUE,            -- M-PESA receipt no. => idempotent imports
+  receipt,                   -- M-PESA receipt no. NOT unique alone: a payment and its fee share one
   completed_at TEXT,         -- 'YYYY-MM-DD HH:mm:ss' local time; sorts and groups (substr 1..7 = month)
   details, status, is_completed,
   paid_in INTEGER, withdrawn INTEGER, balance INTEGER,   -- integer CENTS
@@ -46,6 +46,8 @@ transactions(
   category_source TEXT,      -- 'rule' | 'manual' | NULL
   imported_at)
 
+UNIQUE INDEX ux_txn_key ON transactions(receipt, paid_in, withdrawn, COALESCE(balance, -1))   -- dedupe key
+
 rules(id PK, keyword, direction 'any'|'in'|'out', category_id -> categories ON DELETE CASCADE,
       UNIQUE(keyword, direction))
 ```
@@ -53,11 +55,18 @@ rules(id PK, keyword, direction 'any'|'in'|'out', category_id -> categories ON D
 ### Decisions
 
 - **Money as integer cents.** Floating point drifts (0.1 + 0.2); summing thousands of rows must be exact. The UI formats on display.
-- **Receipt number as the natural key.** It is unique per M-PESA transaction, so re-importing an overlapping statement is a no-op (`INSERT OR IGNORE`).
+- **Dedupe key = receipt + amounts + balance (not the receipt alone).** In a real statement a payment and its transaction
+  fee are separate rows that share one receipt number and timestamp (930 rows had only 541 distinct receipts). A
+  `UNIQUE(receipt)` constraint (schema v1) silently dropped the fee rows. The key `(receipt, paid_in, withdrawn, balance)`
+  keeps both rows while still making re-imports of overlapping statements a no-op (`INSERT OR IGNORE`). `COALESCE(balance, -1)`
+  is there because SQLite treats NULLs as distinct inside a unique index. Migration v1 to v2 rebuilds the table and keeps all rows.
 - **`opfs-sahpool` VFS.** SQLite-on-OPFS has two VFSes. The default (`opfs`) needs `SharedArrayBuffer`, which needs COOP/COEP headers that static hosts such as GitHub Pages cannot send. `opfs-sahpool` needs no special headers and is fast, at the cost of one exclusive connection (fine: a single worker owns the DB).
 - **In-memory fallback.** If OPFS is missing, the worker uses `:memory:` and `DbInfo.persistent` is false; Settings shows a warning.
 - **Local time strings, no timezone.** Statements print local (EAT) times; storing them verbatim avoids timezone shifts in monthly grouping.
 - **Only completed rows in totals.** `is_completed = 1` (status empty or contains "complete").
+- **Fuliza is borrowing, not income or spending.** Rows of `type = 'fuliza'` (the overdraft draw and its repayment) are left out
+  of money in/out, category breakdowns, top payees and the monthly chart, and are reported on their own (`Summary.fuliza`).
+  Payments merely funded by Fuliza are ordinary `send`/`till` rows and count as spending.
 
 ## Worker protocol
 

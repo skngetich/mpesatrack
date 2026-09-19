@@ -65,6 +65,13 @@ export function SummaryView({ info, version }: { info: DbInfo; version: number }
         </div>
       </div>
 
+      {(s.fuliza.drawn > 0 || s.fuliza.repaid > 0) && (
+        <p class="note">
+          <b>Fuliza (overdraft):</b> drew {kes(s.fuliza.drawn)}, repaid {kes(s.fuliza.repaid)}. This is borrowing, so
+          it is not counted as income or spending above.
+        </p>
+      )}
+
       {info.uncategorised > 0 && (
         <p class="note">
           {info.uncategorised} {info.uncategorised === 1 ? 'transaction is' : 'transactions are'} uncategorised. Tap {info.uncategorised === 1 ? 'it' : 'them'} in the Transactions tab to teach the app.

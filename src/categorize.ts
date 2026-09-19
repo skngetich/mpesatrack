@@ -58,9 +58,13 @@ export const DEFAULT_RULES: Array<[string, string, Direction]> = [
   // airtime & data
   ['airtime', 'Airtime & data', 'any'],
   ['bundle', 'Airtime & data', 'out'],
-  // loans
-  ['fuliza', 'Loans & Fuliza', 'any'],
-  ['overdraft', 'Loans & Fuliza', 'any'],
+  // Fuliza is an overdraft (borrowing). Only the draw and its repayment are
+  // "Loans & Fuliza"; a payment merely funded by Fuliza ("Customer Transfer
+  // Fuliza MPesa to ...") keeps the category of what was bought, so there is
+  // deliberately no bare "fuliza" keyword here.
+  ['overdraft of credit party', 'Loans & Fuliza', 'any'],
+  ['od loan repayment', 'Loans & Fuliza', 'any'],
+  ['fuliza repay', 'Loans & Fuliza', 'any'],
   ['tala', 'Loans & Fuliza', 'any'],
   ['okoa', 'Loans & Fuliza', 'any'],
   // savings
@@ -89,6 +93,7 @@ export const DEFAULT_RULES: Array<[string, string, Direction]> = [
   ['naivas', 'Food & groceries', 'out'],
   ['carrefour', 'Food & groceries', 'out'],
   ['quickmart', 'Food & groceries', 'out'],
+  ['quick mart', 'Food & groceries', 'out'],
   ['chandarana', 'Food & groceries', 'out'],
   ['kfc', 'Food & groceries', 'out'],
   ['java house', 'Food & groceries', 'out'],
@@ -110,6 +115,8 @@ export const DEFAULT_RULES: Array<[string, string, Direction]> = [
   ['jumia', 'Shopping', 'out'],
   // income
   ['salary', 'Income', 'in'],
+  ['receive international', 'Income', 'in'],
+  ['promotion payment', 'Income', 'in'],
   ['business payment from', 'Income', 'in'],
 ];
 

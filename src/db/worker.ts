@@ -26,7 +26,7 @@ import type {
 } from './types';
 
 const DB_PATH = '/mpesatrack.sqlite3';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 let sqlite3: Sqlite3Static;
 let db: Database;
@@ -98,6 +98,45 @@ function migrate(): void {
         UNIQUE (keyword, direction)
       )`);
       seedDefaults();
+      run('PRAGMA user_version = 1');
+    });
+  }
+  if (version < 2) {
+    // v1 made `receipt` UNIQUE, which silently dropped rows: in a real statement a
+    // payment and its transaction fee are separate rows sharing ONE receipt number
+    // (and timestamp). Rebuild the table so a row is identified by receipt plus its
+    // amounts and balance instead. Existing rows are kept; re-importing a statement
+    // afterwards fills in any rows v1 had dropped.
+    db.transaction(() => {
+      run(`CREATE TABLE transactions_v2 (
+        id              INTEGER PRIMARY KEY,
+        receipt         TEXT NOT NULL,          -- shared by a payment and its fee, so NOT unique alone
+        completed_at    TEXT NOT NULL,
+        details         TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT '',
+        is_completed    INTEGER NOT NULL DEFAULT 1,
+        paid_in         INTEGER NOT NULL DEFAULT 0,
+        withdrawn       INTEGER NOT NULL DEFAULT 0,
+        balance         INTEGER,
+        type            TEXT NOT NULL DEFAULT 'other',
+        counterparty    TEXT NOT NULL DEFAULT '',
+        category_id     INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+        category_source TEXT CHECK (category_source IN ('rule','manual')),
+        imported_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      run(`INSERT INTO transactions_v2
+             (id, receipt, completed_at, details, status, is_completed, paid_in, withdrawn, balance,
+              type, counterparty, category_id, category_source, imported_at)
+           SELECT id, receipt, completed_at, details, status, is_completed, paid_in, withdrawn, balance,
+                  type, counterparty, category_id, category_source, imported_at
+           FROM transactions`);
+      run('DROP TABLE transactions');
+      run('ALTER TABLE transactions_v2 RENAME TO transactions');
+      run('CREATE INDEX idx_txn_time ON transactions(completed_at)');
+      run('CREATE INDEX idx_txn_cat  ON transactions(category_id)');
+      // The dedupe key. COALESCE because SQLite treats NULLs as distinct in unique indexes.
+      run(`CREATE UNIQUE INDEX ux_txn_key
+             ON transactions(receipt, paid_in, withdrawn, COALESCE(balance, -1))`);
       run(`PRAGMA user_version = ${SCHEMA_VERSION}`);
     });
   }
@@ -294,10 +333,24 @@ function deleteRule(id: number): { changed: number } {
 
 // ------------------------------------------------------------------ summary
 
-/** Only completed transactions count towards totals. `month` null = all time. */
+/**
+ * Only completed transactions count towards totals. `month` null = all time.
+ *
+ * Fuliza (M-PESA's overdraft) is borrowing, so its draws are NOT income and its
+ * repayments are NOT spending: they are left out of every total below and
+ * reported separately in `fuliza`. Payments merely funded by Fuliza are normal
+ * transactions (type send / till / ...) and count as spending.
+ */
 function summary(month: string | null): Summary {
-  const where = `is_completed = 1 ${month ? "AND substr(completed_at, 1, 7) = ?" : ''}`;
+  const period = `is_completed = 1 ${month ? "AND substr(completed_at, 1, 7) = ?" : ''}`;
+  const where = `${period} AND type <> 'fuliza'`;
   const b: Bind = month ? [month] : [];
+
+  const fz = one(
+    `SELECT COALESCE(SUM(paid_in),0) AS drawn, COALESCE(SUM(withdrawn),0) AS repaid FROM transactions
+     WHERE ${period} AND type = 'fuliza'`,
+    b,
+  );
 
   const totals = one(`SELECT COALESCE(SUM(paid_in),0) AS i, COALESCE(SUM(withdrawn),0) AS o FROM transactions WHERE ${where}`, b);
 
@@ -326,7 +379,7 @@ function summary(month: string | null): Summary {
 
   const monthly = all(
     `SELECT substr(completed_at, 1, 7) AS m, SUM(paid_in) AS i, SUM(withdrawn) AS o
-     FROM transactions WHERE is_completed = 1 GROUP BY m ORDER BY m`,
+     FROM transactions WHERE is_completed = 1 AND type <> 'fuliza' GROUP BY m ORDER BY m`,
   ).map((r) => ({ month: String(r.m), totalIn: Number(r.i), totalOut: Number(r.o) }));
 
   return {
@@ -336,6 +389,7 @@ function summary(month: string | null): Summary {
     income: byCategory('paid_in'),
     topCounterparties: top,
     monthly,
+    fuliza: { drawn: Number(fz?.drawn ?? 0), repaid: Number(fz?.repaid ?? 0) },
   };
 }
 
