@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { db } from '../db/client';
 import type { Category, DbInfo, RuleRow } from '../db/types';
+import { PIN_LENGTH, checkPin, clearPin, hasPin, isValidPin, setPin } from '../lock';
 import { download } from './format';
 
 interface Props {
@@ -20,6 +21,41 @@ export function SettingsView({ info, categories, version, onChanged }: Props) {
   const [kw, setKw] = useState('');
   const [dir, setDir] = useState<'any' | 'in' | 'out'>('out');
   const [ruleCat, setRuleCat] = useState('');
+
+  const [pinOn, setPinOn] = useState(hasPin);
+  const [pinMode, setPinMode] = useState<'set' | 'change' | 'remove' | null>(null);
+  const [curPin, setCurPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPin2, setNewPin2] = useState('');
+
+  function closePinForm() {
+    setPinMode(null);
+    setCurPin('');
+    setNewPin('');
+    setNewPin2('');
+  }
+
+  async function savePin(): Promise<string> {
+    if (pinMode !== 'set') {
+      const r = await checkPin(curPin);
+      if (!r.ok) {
+        setCurPin('');
+        return r.lockedUntil ? 'Too many wrong PINs. Wait 30 seconds and try again.' : 'Current PIN is wrong.';
+      }
+    }
+    if (pinMode === 'remove') {
+      clearPin();
+      setPinOn(false);
+      closePinForm();
+      return 'App lock turned off.';
+    }
+    if (!isValidPin(newPin)) return `The new PIN must be ${PIN_LENGTH} digits.`;
+    if (newPin !== newPin2) return 'The two new PINs do not match.';
+    await setPin(newPin);
+    setPinOn(true);
+    closePinForm();
+    return 'PIN saved. The app will ask for it when opened.';
+  }
 
   useEffect(() => {
     void db.listRules().then(setRules);
@@ -129,6 +165,53 @@ export function SettingsView({ info, categories, version, onChanged }: Props) {
         ))}
       </ul>
 
+      <h2>App lock</h2>
+      <p class="muted small">
+        {pinOn
+          ? 'A PIN is asked for when the app opens and after it has been in the background for a minute.'
+          : `Ask for a ${PIN_LENGTH}-digit PIN when the app opens, so others using your phone cannot see your transactions.`}{' '}
+        It hides the app; it does not encrypt the data stored on the device. If you forget it, the only way back in is
+        to erase all data, so keep a backup.
+      </p>
+      {pinMode ? (
+        <form
+          class="stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act(savePin);
+          }}
+        >
+          {pinMode !== 'set' && <PinInput label="Current PIN" value={curPin} onChange={setCurPin} />}
+          {pinMode !== 'remove' && (
+            <>
+              <PinInput label="New PIN" value={newPin} onChange={setNewPin} />
+              <PinInput label="Repeat new PIN" value={newPin2} onChange={setNewPin2} />
+            </>
+          )}
+          <div class="row wrap">
+            <button class={`btn ${pinMode === 'remove' ? 'danger' : 'primary'}`}>
+              {pinMode === 'remove' ? 'Turn off app lock' : 'Save PIN'}
+            </button>
+            <button type="button" class="btn" onClick={closePinForm}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : pinOn ? (
+        <div class="row wrap">
+          <button class="btn" onClick={() => setPinMode('change')}>
+            Change PIN
+          </button>
+          <button class="btn danger" onClick={() => setPinMode('remove')}>
+            Turn off app lock
+          </button>
+        </div>
+      ) : (
+        <button class="btn primary" onClick={() => setPinMode('set')}>
+          Set a PIN
+        </button>
+      )}
+
       <h2>Your data</h2>
       <p class="muted small">
         {info.transactionCount} transactions stored {info.persistent ? 'on this device' : 'in memory only'}. Backups are
@@ -178,5 +261,21 @@ export function SettingsView({ info, categories, version, onChanged }: Props) {
         </button>
       </div>
     </section>
+  );
+}
+
+/** A masked, digits-only field that brings up the numeric keypad on phones. */
+function PinInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      type="password"
+      inputMode="numeric"
+      autoComplete="off"
+      maxLength={PIN_LENGTH}
+      placeholder={label}
+      aria-label={label}
+      value={value}
+      onInput={(e) => onChange((e.target as HTMLInputElement).value.replace(/\D/g, ''))}
+    />
   );
 }

@@ -90,7 +90,7 @@ Users get updates automatically: the service worker (`autoUpdate`) installs the 
    - Leave *"Also categorise similar transactions"* ticked to save a rule from the payee name (edit the keyword if it is too narrow or too broad).
    - A category you set by hand (marked with a pencil) is never overwritten by rules.
 3. **Summary**: choose a month or all time.
-4. **Settings**: add or remove rules and categories, re-apply rules, download or restore a backup, delete all transactions.
+4. **Settings**: add or remove rules and categories, re-apply rules, set an app-lock PIN, download or restore a backup, delete all transactions.
 
 ### How categorisation decides
 
@@ -102,6 +102,9 @@ Manual choices always beat rules. Details in [docs/ARCHITECTURE.md](docs/ARCHITE
 
 - The PDF, its password and all transactions are processed **in the browser** and stored in the browser's private file system (OPFS). There is no server component and no analytics.
 - The only network traffic is loading the app itself; after the first visit the service worker serves it from cache.
+- **App lock (optional).** A 4-digit PIN set in Settings is asked for on open and after a minute in the background; 5 wrong
+  tries lock entry for 30 seconds. Only a salted PBKDF2 hash is stored (in `localStorage`, so backups don't carry it). It
+  hides the app from someone holding your phone; it does **not** encrypt the database. *Forgot PIN* erases all data.
 - Real statements are personal financial data. `.gitignore` excludes `*.pdf` and `samples/`; keep it that way.
 
 ## Project layout

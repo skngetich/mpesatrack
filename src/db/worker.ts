@@ -419,6 +419,19 @@ function clearTransactions(): DbInfo {
   return info();
 }
 
+/** Erase the whole database (transactions, categories, rules) and start fresh with the defaults. */
+async function wipeAll(): Promise<DbInfo> {
+  db.close();
+  if (pool) {
+    pool.unlink(DB_PATH);
+    db = new pool.OpfsSAHPoolDb(DB_PATH);
+  } else {
+    db = new sqlite3.oo1.DB(':memory:', 'c');
+  }
+  migrate();
+  return info();
+}
+
 // ----------------------------------------------------------------- dispatch
 
 const methods = {
@@ -438,6 +451,7 @@ const methods = {
   exportDb,
   importDb,
   clearTransactions,
+  wipeAll,
 };
 export type DbMethods = typeof methods;
 

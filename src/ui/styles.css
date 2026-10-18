@@ -139,3 +139,26 @@ pre { overflow: auto; max-height: 240px; font-size: 0.72rem; background: var(--b
 }
 .tabs button span { font-size: 1.25rem; line-height: 1; }
 .tabs button.on { color: var(--brand); font-weight: 600; }
+
+/* App lock */
+.lock {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); text-align: center;
+}
+.lock h1 { font-size: 1.5rem; margin-bottom: 4px; }
+.lock > p { margin: 0; }
+.pin-dots { display: flex; gap: 16px; margin: 20px 0 8px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--brand); }
+.pin-dots i.on { background: var(--brand); }
+.pin-dots.shake { animation: shake 0.4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.lock-msg { min-height: 1.3em; }
+.keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px; margin-top: 8px; }
+.keypad button {
+  width: 72px; height: 72px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); font-size: 1.6rem; cursor: pointer;
+}
+.keypad button:active { background: var(--line); }
+.keypad button[disabled] { opacity: 0.4; }
+.forgot { margin-top: 20px; width: auto; color: var(--muted); text-decoration: underline; }

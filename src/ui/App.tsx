@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { db } from '../db/client';
 import type { Category, DbInfo } from '../db/types';
+import { RELOCK_AFTER_MS, hasPin } from '../lock';
 import { ImportView } from './ImportView';
+import { LockScreen } from './LockScreen';
 import { SettingsView } from './SettingsView';
 import { SummaryView } from './SummaryView';
 import { TransactionsView } from './TransactionsView';
@@ -22,6 +24,7 @@ export function App() {
   const [error, setError] = useState('');
   /** Bumped after any write so views re-query. */
   const [version, setVersion] = useState(0);
+  const [locked, setLocked] = useState(hasPin);
 
   const refresh = useCallback(async () => {
     const [i, c] = await Promise.all([db.info(), db.listCategories()]);
@@ -37,6 +40,31 @@ export function App() {
       .then((i) => setTab((t) => t ?? (i.transactionCount ? 'summary' : 'import')))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [refresh]);
+
+  // Re-lock when the app comes back after being in the background for a while.
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt >= RELOCK_AFTER_MS && hasPin()) setLocked(true);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // Checked before anything else so no data is ever rendered behind the lock.
+  if (locked) {
+    return (
+      <LockScreen
+        onUnlock={() => setLocked(false)}
+        onWiped={() => {
+          setLocked(false);
+          setTab('import');
+          void refresh();
+        }}
+      />
+    );
+  }
 
   if (error) {
     return (
