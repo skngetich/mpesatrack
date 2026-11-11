@@ -7,3 +7,4 @@ dev-dist
 samples/
 .firebase
 .claude/settings.local.json
+scripts/screenshots/.out/
