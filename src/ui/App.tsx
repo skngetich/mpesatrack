@@ -82,7 +82,7 @@ export function App() {
         <h1>MpesaTrack</h1>
         {tab === 'summary' && <SummaryView info={info} version={version} />}
         {tab === 'txns' && <TransactionsView info={info} categories={categories} version={version} onChanged={() => void refresh()} />}
-        {tab === 'import' && <ImportView onImported={() => void refresh()} />}
+        {tab === 'import' && <ImportView onImported={() => void refresh()} showHero={info.transactionCount === 0} />}
         {tab === 'settings' && <SettingsView info={info} categories={categories} version={version} onChanged={() => void refresh()} />}
       </main>
       <nav class="tabs">

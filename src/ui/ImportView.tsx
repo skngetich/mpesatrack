@@ -1,8 +1,9 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { db } from '../db/client';
 import { parseStatement } from '../parser/mpesa';
 import { extractTextItems, PasswordError } from '../parser/pdf';
 import type { TextItem } from '../parser/mpesa';
+import { Hero } from './Hero';
 
 interface Report {
   file: string;
@@ -25,7 +26,10 @@ function debugDump(items: TextItem[]): string {
     .join('\n');
 }
 
-export function ImportView({ onImported }: { onImported: () => void }) {
+/** `showHero`: true while the database is empty (first run). */
+export function ImportView({ onImported, showHero }: { onImported: () => void; showHero: boolean }) {
+  const importRef = useRef<HTMLHeadingElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState('');
   const [reports, setReports] = useState<Report[]>([]);
@@ -67,7 +71,17 @@ export function ImportView({ onImported }: { onImported: () => void }) {
 
   return (
     <section class="stack">
-      <h2>Import statement</h2>
+      {showHero && (
+        <Hero
+          onStart={() => {
+            // Safaricom statements are password protected, so the password comes first.
+            // Focus BEFORE scrolling: focusing afterwards cancels a smooth scroll in Chrome.
+            passwordRef.current?.focus({ preventScroll: true });
+            importRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
+        />
+      )}
+      <h2 id="import" ref={importRef}>Import statement</h2>
       <p class="muted">
         Pick your M-PESA statement PDF. It is read and saved on this device only; nothing is uploaded.
         Importing the same period twice is safe, duplicates are skipped by receipt number.
@@ -76,6 +90,7 @@ export function ImportView({ onImported }: { onImported: () => void }) {
       <label class="field">
         <span>PDF password {needPassword && <b class="warn">(required)</b>}</span>
         <input
+          ref={passwordRef}
           type="password"
           autocomplete="off"
           placeholder="Usually your national ID number"

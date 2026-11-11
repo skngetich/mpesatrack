@@ -29,7 +29,7 @@ export default defineConfig({
       workbox: {
         // Precache everything needed to run fully offline, including the
         // SQLite WebAssembly binary and the pdf.js worker.
-        globPatterns: ['**/*.{js,mjs,css,html,wasm,png,svg,ico}'],
+        globPatterns: ['**/*.{js,mjs,css,html,wasm,png,svg,ico,webp}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },
     }),

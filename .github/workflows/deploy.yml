@@ -1,5 +1,5 @@
 # CI/CD: test and build every push and pull request; deploy to Firebase Hosting
-# (https://mpesatrack.web.app) only when the push is to main.
+# (https://mpesatrack.sngetich.com, i.e. the site mpesatrack.web.app) only when the push is to main.
 #
 # Requires the repository secret FIREBASE_SERVICE_ACCOUNT: the JSON key of the
 # `mpesatrack-deploy` service account (see README, "Deploying to Firebase").
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://mpesatrack.web.app
+      url: https://mpesatrack.sngetich.com
     steps:
       - uses: actions/checkout@v7
 

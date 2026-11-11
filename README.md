@@ -1,5 +1,14 @@
 # MpesaTrack
 
+**See where your M-PESA money goes.** Try it: **[mpesatrack.sngetich.com](https://mpesatrack.sngetich.com)**
+
+<p align="center">
+  <img src="docs/screenshots/import.png" width="250" alt="Import screen: 57 transactions added, totals match the statement">
+  <img src="docs/screenshots/transactions.png" width="250" alt="Transactions list, each payment tagged with a category">
+  <img src="docs/screenshots/summary.png" width="250" alt="Summary: money in, money out and spending by category">
+</p>
+<p align="center"><sub>Screenshots use an invented demo statement, not real data.</sub></p>
+
 Import your M-PESA statement PDF, categorise every transaction, and see where your money goes.
 An installable **Progressive Web App** (PWA): everything runs on your phone, the data is stored in a
 **local SQLite database**, and **nothing is ever uploaded**.
@@ -33,6 +42,14 @@ npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ (this is the real PWA, with service worker)
 ```
 
+### Screenshots
+
+The README images and the first-run hero in the app come from `npm run screenshots`. It writes a fake
+statement PDF (`scripts/screenshots/fixture.mjs`, invented data in the real layout), imports it through the
+real app in headless Chromium, teaches a few categories, and saves `docs/screenshots/*.png` plus
+`src/ui/hero/*.webp` (each WebP must stay under 80 KB, they are precached for offline use). Run it after UI
+changes and commit the images. First time only: `npx playwright install chromium`.
+
 ## Getting it onto your phone
 
 A PWA needs **HTTPS** to install and to use local storage (`http://192.168.x.x` does **not** qualify;
@@ -54,7 +71,8 @@ Then: **Import** tab, choose the PDF, enter the password if asked, done.
 
 ### Deploying to Firebase
 
-Live at **https://mpesatrack.web.app**, a dedicated Hosting site (`mpesatrack`) inside the Firebase project
+Live at **https://mpesatrack.sngetich.com** (custom domain pointing at the Firebase site
+`https://mpesatrack.web.app`), a dedicated Hosting site (`mpesatrack`) inside the Firebase project
 `skngetich-portfolio`, next to (and independent of) the portfolio's default site.
 
 ```bash

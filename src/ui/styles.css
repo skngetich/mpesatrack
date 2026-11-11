@@ -162,3 +162,33 @@ pre { overflow: auto; max-height: 240px; font-size: 0.72rem; background: var(--b
 .keypad button:active { background: var(--line); }
 .keypad button[disabled] { opacity: 0.4; }
 .forgot { margin-top: 20px; width: auto; color: var(--muted); text-decoration: underline; }
+
+/* First-run hero (Import tab while the database is empty) */
+.hero { padding: 4px 0 8px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.hero-title { font-size: 1.6rem; line-height: 1.2; margin: 4px 0 8px; letter-spacing: -0.01em; }
+.hero-sub { margin: 0 0 14px; color: var(--muted); }
+.hero-points { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; }
+.hero-points li { display: flex; gap: 10px; align-items: flex-start; }
+.hero-icon {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font-size: 0.9rem;
+}
+.hero-cta { width: 100%; }
+.hero-shots {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 62%; gap: 14px;
+  overflow-x: auto; scroll-snap-type: x mandatory; margin: 20px -16px 8px; padding: 4px 16px 12px;
+  scrollbar-width: none;
+}
+.hero-shots::-webkit-scrollbar { display: none; }
+@media (min-width: 560px) {
+  .hero-shots { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); overflow: visible; margin: 20px 0 8px; padding: 4px 0 12px; }
+}
+.hero-shots figure { margin: 0; scroll-snap-align: center; }
+.phone {
+  --frame: #1c1f1d;
+  border: 6px solid var(--frame); border-radius: 26px; overflow: hidden; background: var(--frame);
+  aspect-ratio: 390 / 844; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+@media (prefers-color-scheme: dark) { .phone { --frame: #3a413c; box-shadow: none; } }
+.phone img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+.hero-shots figcaption { margin-top: 8px; text-align: center; font-size: 0.85rem; color: var(--muted); }
